@@ -1,0 +1,19 @@
+{
+  "name": "church-cat",
+  "version": "0.1.0",
+  "description": "Run catamorphisms and other recursion schemes over church-encoded ADTs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jhp/church-cat.git"
+  },
+  "author": "Jason Priestley <jasonhpriestley@gmail.com>",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/jhp/church-cat/issues"
+  },
+  "homepage": "https://github.com/jhp/church-cat#readme"
+}
