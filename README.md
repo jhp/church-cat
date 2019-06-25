@@ -21,7 +21,7 @@ This encoding can be used directly to perform folds over the structure.
 let sum = t({
   branch: (l,r) => l + r,
   leaf: (n) => n
-});
+})
 ~~~
 
 This is a little different from the typical ADT structure used in
@@ -42,7 +42,7 @@ let sum = (function scott_sum(st) {
     return st({
         branch: (l,r) => scott_sum(l) + scott_sum(r),
         leaf: (n) => n
-    });
+    })
 })(st)
 ~~~
 
@@ -129,7 +129,7 @@ let depth_sum = run(function*() {
     branch: (l,r) => l + r,
     leaf: () => depth
   })
-}, t_dec, tree);
+}, t_dec, tree)
 ~~~
 
 `church-cat` runs one copy of this generator at each node of the
@@ -183,7 +183,7 @@ function* numberNode() {
       let new_n = r(l(n).state).state
       return {state: new_n+1, value:new_n}
     }
-  }, 1);
+  }, 1)
 }
 
 function* getEnv(num) {
@@ -195,9 +195,9 @@ function* getEnv(num) {
       let new_env = {...env, [name]: `r${num}`}
       l(new_env)
       r(new_env)
-      return env;
+      return env
     }
-  }, {});
+  }, {})
 }
 
 function* concatOps(env, num) {
@@ -212,14 +212,14 @@ function* concatOps(env, num) {
       ops: [...l.ops, `r${num}=${l.ret}`, ...r.ops], 
       ret: r.ret
     })
-  });
+  })
 }
 
 let ops = run(function*() {
-  let num = yield* numberNode();
-  let env = yield* getEnv(num);
-  return yield* concatOps(env, num);
-}, ast_dec, ast);
+  let num = yield* numberNode()
+  let env = yield* getEnv(num)
+  return yield* concatOps(env, num)
+}, ast_dec, ast)
 ~~~
 
 The result is `{ ops: [ 'r7=1', 'r6=2', 'r5=r7+r6' ], ret: 'r5' }`.
