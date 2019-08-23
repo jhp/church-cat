@@ -11,7 +11,7 @@
     "url": "git+https://github.com/jhp/church-cat.git"
   },
   "author": "Jason Priestley <jasonhpriestley@gmail.com>",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/jhp/church-cat/issues"
   },

@@ -60,7 +60,7 @@ ADT. The declaration looks like this:
 let t_dec = ({I,K}) => ({
     branch: [I,I],
     leaf: [K]
-})
+});
 ~~~
 
 This shows that the two arguments to the `Branch` constructor are
@@ -68,52 +68,44 @@ recursive applications of the Tree functor - represented using `I` to
 indicate the constant functor, based on standard combinator
 symbols. And the one argument to `Leaf` is not a recursive application
 of the functor, but some other type, i.e. a number - represented here
-with the `K` constant combinator. A future release of this library
-should add a `Y` combinator to the mix to allow fixpoint structures,
-e.g. lambda terms :)
+with the `K` constant combinator. One can also use a `Y` parameter to
+indicate a fixpoint.
 
 Our declaration finished, we can write some catamorphisms.
 
 ~~~{.javascript}
-let {run, cata, readCata, stateCata} = require('church-cat')
+let {run} = require('church-cat');
 
 let sum = run(function*() {
-  return yield cata({
-    branch: (l,r) => l + r,
-    leaf: (n) => n
-  })
-}, t_dec, tree)
+  return yield {
+      cata: {
+        branch: (l,r) => l + r,
+        leaf: (n) => n
+      }
+  };
+}, t_dec, tree);
 ~~~
 
 This is the same sum calculation as before. We can also pass an
-argument down or thread a state value through the calculation. Next we
-take the max depth by passing down the depth at each level, and count
-the nodes by passing through a count to each node (either calculation
-could be simpler but this shows the mechanics of the operations).
+argument down through the calculation. Next we
+take the max depth by passing down the depth at each level.
 
 ~~~{.javascript}
 let max_depth = run(function*() {
-  return yield readCata({
-    branch: (l,r) => d => Math.max(l(d),r(d)),
-    leaf: (n) => d => d
-  }, 0)
-}, t_dec, tree)
-
-let node_count = run(function*() {
-  return yield stateCata({
-    branch: (l,r) => n => {
-      let new_n = r(l(n).state).state
-      return {state: new_n+1, value: new_n}
-    )
-    leaf: () => n => ({state: n+1, value: n})
-  }, 0);
-}, t_dec, tree)
+  return {
+    cata: {
+      branch: (l,r) => d => Math.max(l(d),r(d)),
+      leaf: (n) => d => d
+    },
+    seed: 0
+  };
+}, t_dec, tree);
 ~~~
 
-For `readCata` and `stateCata`, the second argument provides an
-initial value and should be a constant. It is necessary to call all
-recursive values, i.e. `l` and `r` above, within the body of the
-catamorphism.
+If a 'seed' argument is present, then it will be passed down through
+the tree. The seed must be constant for all invocations. It is
+necessary to call all recursive values, i.e. `l` and `r` above, within
+the body of the catamorphism.
 
 What makes `church-cat` especially useful is that these operations can
 be chained within the generator. For example, to find the sum of the
@@ -121,15 +113,21 @@ depths at each leaf:
 
 ~~~{.javascript}
 let depth_sum = run(function*() {
-  let depth = yield readCata({
-    branch: (l,r) => d => (l(d),r(d),d),
-    leaf: () => d => d
-  }, 0)
-  return yield cata({
-    branch: (l,r) => l + r,
-    leaf: () => depth
-  })
-}, t_dec, tree)
+  let depth = yield {
+    cata: {
+      branch: (l,r) => d => (l(d),r(d),d),
+      leaf: () => d => d
+    },
+    seed: 0
+  };
+  return yield {
+    cata: {
+      branch: (l,r) => l + r,
+      leaf: () => depth
+    }
+  };
+}, t_dec, tree);
+>>>>>>> Update license, add Y support, simplify
 ~~~
 
 `church-cat` runs one copy of this generator at each node of the
@@ -166,53 +164,61 @@ let ast_dec = ({K,I}) => ({
     Const: [K],
     Op: [K, I, I],
     Var: [K]
-})
+});
 
 let ast = ({Let,Const,Op,Var}) => 
-  Let('x', Const(1), Let('y', Const(2), Op('+', Var('x'), Var('y'))))
+  Let('x', Const(1), Let('y', Const(2), Op('+', Var('x'), Var('y'))));
 
 function* numberNode() {
-  return yield stateCata({
-    Const: () => n => ({state:n+1, value:n}),
-    Var: () => n => ({state:n+1,value:n}),
-    Op: (op,l,r) => n => {
-      let new_n = r(l(n).state).state
-      return {state: new_n+1, value:new_n}
+  return (yield {
+    cata: {
+      Const: () => n => ({state:n+1, value:n}),
+      Var: () => n => ({state:n+1,value:n}),
+      Op: (op,l,r) => n => {
+        let new_n = r(l(n).state).state;
+        return {state: new_n+1, value:new_n};
+      },
+      Let: (name,l,r) => n => {
+        let new_n = r(l(n).state).state;
+        return {state: new_n+1, value:new_n};
+      }
     },
-    Let: (name,l,r) => n => {
-      let new_n = r(l(n).state).state
-      return {state: new_n+1, value:new_n}
-    }
-  }, 1)
+    seed: 1
+  }).value;
 }
 
 function* getEnv(num) {
-  return yield readCata({
-    Const: () => env => env,
-    Var: () => env => env,
-    Op: (op, l, r) => env => (l(env),r(env),env),
-    Let: (name, l, r) => env => {
-      let new_env = {...env, [name]: `r${num}`}
-      l(new_env)
-      r(new_env)
-      return env
-    }
-  }, {})
+  return yield {
+    cata: {
+      Const: () => env => env,
+      Var: () => env => env,
+      Op: (op, l, r) => env => (l(env),r(env),env),
+      Let: (name, l, r) => env => {
+        let new_env = {...env, [name]: `r${num}`};
+        l(new_env);
+        r(new_env);
+        return env;
+      },
+    },
+    seed: {}
+  };
 }
 
 function* concatOps(env, num) {
-  return yield cata({
-    Const: (n) => ({ops: [], ret: n.toString()}),
-    Var: (name) => ({ops: [], ret: env[name]}),
-    Op: (op, l, r) => ({
-      ops: [...l.ops, ...r.ops, `r${num}=${l.ret}${op}${r.ret}`], 
-      ret: `r${num}`
-    }),
-    Let: (name, l, r) => ({
-      ops: [...l.ops, `r${num}=${l.ret}`, ...r.ops], 
-      ret: r.ret
-    })
-  })
+  return yield {
+    cata: {
+      Const: (n) => ({ops: [], ret: n.toString()}),
+      Var: (name) => ({ops: [], ret: env[name]}),
+      Op: (op, l, r) => ({
+        ops: [...l.ops, ...r.ops, `r${num}=${l.ret}${op}${r.ret}`], 
+        ret: `r${num}`
+      }),
+      Let: (name, l, r) => ({
+        ops: [...l.ops, `r${num}=${l.ret}`, ...r.ops], 
+        ret: r.ret
+      })
+    }
+  };
 }
 
 let ops = run(function*() {
