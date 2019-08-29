@@ -23,7 +23,7 @@ function step_cata(schema, node) {
       let asts = schema({
         I: ({ast}) => ast,
         K: (v) => A => v,
-        Y: () => null
+        Y: () => A => { throw "empty function" }
       })[key].map((sch,ii) => sch(args[ii]));
 
       let out, nextgen = {gen};
@@ -32,7 +32,7 @@ function step_cata(schema, node) {
         out = last.value;
       } else {
         let cata = last.value.cata;
-        if(!reader && 'seed' in last.value) reader = {seed: last.seed};
+        if(!reader && ('seed' in last.value)) reader = {seed: last.value.seed};
         
         let outs = schema({
           I: (ii, {out}) => out,
