@@ -19,21 +19,21 @@ function step_cata(schema, node) {
   let reader = null;
   let done = false;
   for(let key of Object.keys(schema({I: null, K: null, Y: null}))) {
-    pairc[key] = ({gen,last}, ...args) => {
+    pairc[key] = (gen, ...args) => {
       let asts = schema({
         I: ({ast}) => ast,
         K: (v) => A => v,
         Y: () => A => { throw "empty function" }
       })[key].map((sch,ii) => sch(args[ii]));
 
-      let out, nextgen = {gen};
-      if(last.done) {
+      let out, nextgen = gen.next();
+      if(nextgen.last.done) {
         done = true;
-        out = last.value;
+        out = nextgen.last.value;
       } else {
-        let cata = last.value.cata;
-        if(!reader && ('seed' in last.value)) reader = {seed: last.value.seed};
-        
+        let cata = nextgen.last.value.cata;
+        if(!reader && ('seed' in nextgen.last.value)) reader = {seed: nextgen.last.value.seed};
+
         let outs = schema({
           I: (ii, {out}) => out,
           K: (ii, k) => k,
@@ -52,12 +52,12 @@ function step_cata(schema, node) {
         if(reader) {
           out = (...args) => {
             let ret = cata_out(...args);
-            nextgen.last = gen.next(ret);
+            nextgen.setVal(ret);
             return ret;
           }
         } else {
           out = cata_out;
-          nextgen.last = gen.next(out);
+          nextgen.setVal(out);
         }
       }
       return { out, ast: A => A[key](nextgen, ...asts.map(ast => ast(A))) };
@@ -68,11 +68,22 @@ function step_cata(schema, node) {
   return {out, done, ast};
 }
 
+function wrapGen(gen, last, val=null) {
+    let next = null;
+    return {
+        last,
+        setVal: (_val) => { val = _val; },
+        next: () => {
+            if(!next) next = wrapGen(gen, gen.next(val));
+            return next;
+        }
+    }
+}
+
 function run(fgen, schema, node) {
   let ast = init_cata(schema, node, () => {
-    let gen = fgen();
-    let last = gen.next();
-    return {gen, last};
+      let gen = fgen();
+      return wrapGen(gen, null);
   });
   while(true) {
     let next = step_cata(schema, ast);
