@@ -1,233 +1,68 @@
-Church Cat: Use generator syntax to write catamorphisms over church-encoded data
-====================================================================================
+Church Cat: Recursion schemes over church-encoded data
+======================================================
 
-Preface: Vanilla Javascript already has support for ADTs
---------------------------------------------------------
+Church cat solves a problem that often comes up in language tooling like
+parsers and compilers. Given a tree of data, e.g. an abstract syntax tree or
+context-free grammar, we want to compute several values at each node. These
+values might depend on each other and should not be recomputed.
 
-There are a number of proposals, libraries and language extensions
-that attempt to add ADTs (Abstract Data Types) and pattern matching to
-javascript. However, vanilla javascript already has one way to
-represent ADTs - via Church encoding.
+There are various ways to approach the problem: adding extra data to each node
+that is filled in by passes over the tree (downsides: the dependency between
+different pieces of data is implicit). Attribute grammars. Or recursion schemes
+like catamorphisms. This library is based on recursion schemes, although it
+plays much looser with them than what you'd find in Haskell.
 
-For example, here is an encoding of a simple tree in javascript.
+~~~{.javasript}
+const { I, K, cata, constructors } = require("church-cat");
+// declare a schema using I and K. 
+// I means a recursive copy of the top-level structure. 
+// K means any other type.
+const treeSchema = {
+    branch: [I, I],
+    tip: [K]
+};
 
-~~~{.javascript}
-let t = ({branch, leaf}) => branch(branch(leaf(2), leaf(3)), leaf(1))
-~~~
+let { branch: Branch, tip: Tip } = constructors(treeSchema);
+let exampleTree = Branch(
+    Branch(tip(1), tip(2)), 
+    tip(3));
 
-This encoding can be used directly to perform folds over the structure.
-
-~~~{.javascript}
-let sum = t({
-  branch: (l,r) => l + r,
-  leaf: (n) => n
-})
-~~~
-
-This is a little different from the typical ADT structure used in
-functional languages like ML, which is better represented by the
-Scott encoding. Fortunately, translating between the two is
-simple.
-
-~~~{.javascript}
-let scott = (tree) => tree({
-    branch: (l,r) => ops => ops.branch(l, r),
-    leaf: (n) => ops => ops.leaf(n)
-})
-
-let st = scott(tree)
-
-// looks more like an ML/Haskell pattern match; the fold requires explicit recursion now
-let sum = (function scott_sum(st) {
-    return st({
-        branch: (l,r) => scott_sum(l) + scott_sum(r),
-        leaf: (n) => n
-    })
-})(st)
-~~~
-
-These techniques are not part of this library - they are just a
-pattern of programming that is currently uncommon in javascript, but
-supported by the language.
-
-Church Cat
-----------
-
-To use `church-cat`, we have to write a little declaration for our
-ADT. The declaration looks like this:
-
-~~~{.javascript}
-let t_dec = ({I,K}) => ({
-    branch: [I,I],
-    leaf: [K]
-});
-~~~
-
-This shows that the two arguments to the `Branch` constructor are
-recursive applications of the Tree functor - represented using `I` to
-indicate the constant functor, based on standard combinator
-symbols. And the one argument to `Leaf` is not a recursive application
-of the functor, but some other type, i.e. a number - represented here
-with the `K` constant combinator. One can also use a `Y` parameter to
-indicate a fixpoint.
-
-Our declaration finished, we can write some catamorphisms.
-
-~~~{.javascript}
-let {run} = require('church-cat');
-
-let sum = run(function*() {
-  return yield {
-      cata: {
-        branch: (l,r) => l + r,
-        leaf: (n) => n
-      }
-  };
-}, t_dec, tree);
-~~~
-
-This is the same sum calculation as before. We can also pass an
-argument down through the calculation. Next we
-take the max depth by passing down the depth at each level.
-
-~~~{.javascript}
-let max_depth = run(function*() {
-  return {
-    cata: {
-      branch: (l,r) => d => Math.max(l(d),r(d)),
-      leaf: (n) => d => d
-    },
-    seed: 0
-  };
-}, t_dec, tree);
-~~~
-
-If a 'seed' argument is present, then it will be passed down through
-the tree. The seed must be constant for all invocations. It is
-necessary to call all recursive values, i.e. `l` and `r` above, within
-the body of the catamorphism.
-
-What makes `church-cat` especially useful is that these operations can
-be chained within the generator. For example, to find the sum of the
-depths at each leaf:
-
-~~~{.javascript}
-let depth_sum = run(function*() {
-  let depth = yield {
-    cata: {
-      branch: (l,r) => d => (l(d),r(d),d),
-      leaf: () => d => d
-    },
-    seed: 0
-  };
-  return yield {
-    cata: {
-      branch: (l,r) => l + r,
-      leaf: () => depth
-    }
-  };
-}, t_dec, tree);
->>>>>>> Update license, add Y support, simplify
-~~~
-
-`church-cat` runs one copy of this generator at each node of the
-ADT. Note that the order of operations must be the same in every case
-(no `yield` statements inside `if` statements or loops). Of course one
-also must take care if using shared state within the generator.
-
-Compiling a Simple Expression
------------------------------
-
-This section will show a more realistic example of how this library
-can be useful for compilers and similar projects. Suppose that we have
-a simple expression language, which consists of numbers, "let"
-expressions like `(let (var value) body)`, and the operators `+` and
-`-`. For example, `(let (x 1) (let (y 2) (+ x y)))` would evaluate to
-3.
-
-We will transform this into a flat list of operations on virtual
-registers, like `[r1=1, r2=2, r3=r1+r2]`. This
-requires a few steps. First we give each AST node a number, using a
-`stateCata`. Then we pass down an environment mapping each variable
-name to a unique number (taken from the binding let node's state
-number). Finally we use a catamorphism to paste together the
-individual operations.
-
-This is not too far from the kind of work that compiler writers do in
-practice. The advantage of the `church-cat` approach is that each
-"phase" can be written and understood separately, or put into a
-function.
-
-~~~{.javascript}
-let ast_dec = ({K,I}) => ({
-    Let: [K, I, I],
-    Const: [K],
-    Op: [K, I, I],
-    Var: [K]
+// the return value of the constructors will be a church-encoded ADT, with a link to the associated schema.
+// you can pattern match on the ADT simply by calling it with an object literal.
+exampleTree({
+    branch: (l,r) => console.log("example tree is a branch"), 
+    tip: (n) => console.log("example tree is a tip")
 });
 
-let ast = ({Let,Const,Op,Var}) => 
-  Let('x', Const(1), Let('y', Const(2), Op('+', Var('x'), Var('y'))));
+// you declare a catamorphism by passing in a top-level ADT, and an object literal with reduction functions.
+let heightOf = cata(exampleTree, {
+    branch: (l,r) => 1 + Math.max(l, r),
+    tip: (n) => 1
+});
 
-function* numberNode() {
-  return (yield {
-    cata: {
-      Const: () => n => ({state:n+1, value:n}),
-      Var: () => n => ({state:n+1,value:n}),
-      Op: (op,l,r) => n => {
-        let new_n = r(l(n).state).state;
-        return {state: new_n+1, value:new_n};
-      },
-      Let: (name,l,r) => n => {
-        let new_n = r(l(n).state).state;
-        return {state: new_n+1, value:new_n};
-      }
+// after declaring a catamorphism, you can call it on any child of the ADT. 
+// The catamorphism will only run once, memoizing its results.
+heightOf(exampleTree); // 3
+exampleTree({branch: (l,r) => [heightOf(l), heightOf(r)]}); // [2, 1]
+
+// catamorphisms can also be declared with a seed argument in the third
+// position. If there is a seed argument, then it will be passed down through
+// the tree of catamorphism values.
+
+// Important: Every reduction function must call all its children at least once.
+
+// this rather useless catamorphism will find an array of parent heights, e.g. [3,2,1] for a tip at depth 3.
+let parentHeights = cata(exampleTree, {
+    branch: function(l,r) { 
+        return parents => {
+            // `this` inside a catamorphism is the corresponding ADT. Use `this` to call other catamorphisms.
+            let myHeight = heightOf(this);
+            // both children, l and r, must be called
+            l([...parents, myHeight]); 
+            r([...parents, myHeight]); 
+            return parents
+        }
     },
-    seed: 1
-  }).value;
-}
-
-function* getEnv(num) {
-  return yield {
-    cata: {
-      Const: () => env => env,
-      Var: () => env => env,
-      Op: (op, l, r) => env => (l(env),r(env),env),
-      Let: (name, l, r) => env => {
-        let new_env = {...env, [name]: `r${num}`};
-        l(new_env);
-        r(new_env);
-        return env;
-      },
-    },
-    seed: {}
-  };
-}
-
-function* concatOps(env, num) {
-  return yield {
-    cata: {
-      Const: (n) => ({ops: [], ret: n.toString()}),
-      Var: (name) => ({ops: [], ret: env[name]}),
-      Op: (op, l, r) => ({
-        ops: [...l.ops, ...r.ops, `r${num}=${l.ret}${op}${r.ret}`], 
-        ret: `r${num}`
-      }),
-      Let: (name, l, r) => ({
-        ops: [...l.ops, `r${num}=${l.ret}`, ...r.ops], 
-        ret: r.ret
-      })
-    }
-  };
-}
-
-let ops = run(function*() {
-  let num = yield* numberNode()
-  let env = yield* getEnv(num)
-  return yield* concatOps(env, num)
-}, ast_dec, ast)
+    tip: (n) => parents => parents
+}, []);
 ~~~
-
-The result is `{ ops: [ 'r7=1', 'r6=2', 'r5=r7+r6' ], ret: 'r5' }`.
-
-

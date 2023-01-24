@@ -1,6 +1,6 @@
 {
   "name": "church-cat",
-  "version": "0.2.2",
+  "version": "1.0.0",
   "description": "Run catamorphisms and other recursion schemes over church-encoded ADTs",
   "main": "index.js",
   "scripts": {
