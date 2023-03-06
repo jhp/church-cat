@@ -13,43 +13,47 @@ function constructors( schema ) {
     );
 }
 
-let cata = (function(cata_map) {
+let cata = (function(cata_map, child_map) {
     return function (...args) {
-        let [obj, cata, seed] = args;
+        let [cataF, seed] = args;
+        let hasSeed = args.length > 1;
+        return (child) => objF(cataF, hasSeed, seed, child);
+    }
+    function objF(cataF, hasSeed, seed, child) {
+        let obj = child_map.get(child) || child;
         if(!cata_map.has(obj))
             cata_map.set(obj, new WeakMap());
         if(!getSchema(obj)) 
             throw new Error("No schema for obj");
         let schema = getSchema(obj);
-        return (child) => {
-            if(!cata_map.get(obj).has(cata)) {
-                let values = new Map();
-                cata_map.get(obj).set(cata, {running: true, values});
-                let xformed_cata = (obj) => Object.fromEntries(
-                    Object.entries(cata).map(([name, fn]) => ([name, (...children) => {
-                        let output = fn.apply(obj, children.map((child, ii) => schema[name][ii]({I: () => child(xformed_cata(child)), K: () => child})));
-                        if(args.length > 2) {
-                            return (...args) => {
-                                let out = output(...args);
-                                values.set(obj, out);
-                                return out;
-                            }
-                        } else {
-                            values.set(obj, output);
-                            return output;
-                        }
-                    }]))
-                );
-                let top = obj(xformed_cata(obj));
-                if(args.length > 2) { top(seed) };
-                cata_map.get(obj).get(cata).running = false;
-            }
-            let {running, values} = cata_map.get(obj).get(cata);
-            if(running) throw new Error("Circular call");
-            if(!values.has(child)) throw new Error("Child not available");
-            return values.get(child);
+        if(!cata_map.get(obj).has(cataF)) {
+            let values = new Map();
+            cata_map.get(obj).set(cataF, {running: true, values});
+            let xformed_cata = (obj) => Object.fromEntries(
+                Object.entries(cataF).map(([name, fn]) => ([name, (...children) => {
+                   let output = fn.apply(obj, children.map((child, ii) => schema[name][ii]({I: () => child(xformed_cata(child)), K: () => child})));
+                   if(hasSeed) {
+                       return (...args) => {
+                           let out = output(...args);
+                           values.set(obj, out);
+                           return out;
+                       }
+                   } else {
+                       values.set(obj, output);
+                       return output;
+                   }
+               }]))
+            );
+            let top = obj(xformed_cata(obj));
+            if(hasSeed) { top(seed) };
+            cata_map.get(obj).get(cataF).running = false;
+            Object.keys(values).map(sub => child_map.set(sub, obj));
         }
+        let {running, values} = cata_map.get(obj).get(cataF);
+        if(running) throw new Error("Circular call");
+        if(!values.has(child)) throw new Error("Child not available");
+        return values.get(child);
     }
-})(new WeakMap());
+})(new WeakMap(), new WeakMap());
 
 module.exports = { I, K, constructors, cata, tagWithSchema, getSchema };
