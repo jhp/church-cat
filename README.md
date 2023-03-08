@@ -34,8 +34,8 @@ exampleTree({
     tip: (n) => console.log("example tree is a tip")
 });
 
-// you declare a catamorphism by passing in a top-level ADT, and an object literal with reduction functions.
-let heightOf = cata(exampleTree, {
+// you declare a catamorphism by passing in an object literal with reduction functions.
+let heightOf = cata({
     branch: (l,r) => 1 + Math.max(l, r),
     tip: (n) => 1
 });
@@ -43,16 +43,16 @@ let heightOf = cata(exampleTree, {
 // after declaring a catamorphism, you can call it on any child of the ADT. 
 // The catamorphism will only run once, memoizing its results.
 heightOf(exampleTree); // 3
-exampleTree({branch: (l,r) => [heightOf(l), heightOf(r)]}); // [2, 1]
+exampleTree({branch: (l,r) => [heightOf(l), heightOf(r)]}); // [2, 1] - uses memoized results
 
-// catamorphisms can also be declared with a seed argument in the third
+// catamorphisms can also be declared with a seed argument in the second 
 // position. If there is a seed argument, then it will be passed down through
 // the tree of catamorphism values.
 
 // Important: Every reduction function must call all its children at least once.
 
 // this rather useless catamorphism will find an array of parent heights, e.g. [3,2,1] for a tip at depth 3.
-let parentHeights = cata(exampleTree, {
+let parentHeights = cata({
     branch: function(l,r) { 
         return parents => {
             // `this` inside a catamorphism is the corresponding ADT. Use `this` to call other catamorphisms.
