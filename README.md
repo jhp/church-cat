@@ -42,8 +42,8 @@ let heightOf = cata({
 
 // after declaring a catamorphism, you can call it on any child of the ADT. 
 // The catamorphism will only run once, memoizing its results.
-heightOf(exampleTree); // 3
-exampleTree({branch: (l,r) => [heightOf(l), heightOf(r)]}); // [2, 1] - uses memoized results
+heightOf(exampleTree, exampleTree); // 3
+exampleTree({branch: (l,r) => [heightOf(exampleTree, l), heightOf(exampleTree, r)]}); // [2, 1] - uses memoized results
 
 // catamorphisms can also be declared with a seed argument in the second 
 // position. If there is a seed argument, then it will be passed down through

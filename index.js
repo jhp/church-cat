@@ -13,14 +13,13 @@ function constructors( schema ) {
     );
 }
 
-let cata = (function(cata_map, child_map) {
+let cata = (function(cata_map) {
     return function (...args) {
         let [cataF, seed] = args;
         let hasSeed = args.length > 1;
-        return (child) => objF(cataF, hasSeed, seed, child);
+        return (obj, child) => objF(cataF, hasSeed, seed, obj, child);
     }
-    function objF(cataF, hasSeed, seed, child) {
-        let obj = child_map.get(child) || child;
+    function objF(cataF, hasSeed, seed, obj, child) {
         if(!cata_map.has(obj))
             cata_map.set(obj, new WeakMap());
         if(!getSchema(obj)) 
@@ -47,13 +46,12 @@ let cata = (function(cata_map, child_map) {
             let top = obj(xformed_cata(obj));
             if(hasSeed) { top(seed) };
             cata_map.get(obj).get(cataF).running = false;
-            Object.keys(values).map(sub => child_map.set(sub, obj));
         }
         let {running, values} = cata_map.get(obj).get(cataF);
         if(running) throw new Error("Circular call");
         if(!values.has(child)) throw new Error("Child not available");
         return values.get(child);
     }
-})(new WeakMap(), new WeakMap());
+})(new WeakMap());
 
 module.exports = { I, K, constructors, cata, tagWithSchema, getSchema };
