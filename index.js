@@ -17,7 +17,7 @@ let cata = (function(cata_map) {
     return function (...args) {
         let [cataF, seed] = args;
         let hasSeed = args.length > 1;
-        return (obj, child) => objF(cataF, hasSeed, seed, obj, child);
+        return (obj, child) => objF(cataF, hasSeed, seed, obj, child || obj);
     }
     function objF(cataF, hasSeed, seed, obj, child) {
         if(!cata_map.has(obj))
