@@ -28,8 +28,9 @@ let cata = (function(cata_map) {
         if(!cata_map.get(obj).has(cataF)) {
             let values = new Map();
             cata_map.get(obj).set(cataF, {running: true, values});
+            let cataFObj = typeof cataF === 'function' ? cataF(obj) : cataF;
             let xformed_cata = (obj) => Object.fromEntries(
-                Object.entries(cataF).map(([name, fn]) => ([name, (...children) => {
+                Object.entries(cataFObj).map(([name, fn]) => ([name, (...children) => {
                    let output = fn.apply(obj, children.map((child, ii) => schema[name][ii]({I: () => child(xformed_cata(child)), K: () => child})));
                    if(hasSeed) {
                        return (...args) => {
