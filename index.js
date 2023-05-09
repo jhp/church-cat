@@ -50,7 +50,7 @@ let cata = (function(cata_map) {
         }
         let {running, values} = cata_map.get(obj).get(cataF);
         if(running) throw new Error("Circular call");
-        if(!values.has(child)) throw new Error("Child not available");
+        if(!values.has(child)) throw new Error("Child not available", {cause: child});
         return values.get(child);
     }
 })(new WeakMap());
