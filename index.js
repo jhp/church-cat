@@ -1,7 +1,9 @@
 
-let I = ({I, K}) => I();
+let I = ({I, K, L}) => I();
 
-let K = ({I, K}) => K();
+let K = ({I, K, L}) => K();
+
+let L = (S) => ({I,K,L}) => L(S);
 
 let [getSchema, tagWithSchema] = (function(schema_tag) {
     return [obj => schema_tag.get(obj), (schema, val) => { schema_tag.set(val, schema); return val; }];
@@ -11,6 +13,14 @@ function constructors( schema ) {
     return Object.fromEntries(
         Object.keys(schema).map((name) => ([name, (...args) => tagWithSchema(schema, (ctors) => ctors[name](...args))]))
     );
+}
+
+function schemaAction(cata, child, schema) {
+    return schema({
+        I: () => child(cata(child)),
+        K: () => child,
+        L: (S) => child.map(ch => schemaAction(cata, ch, S))
+    });
 }
 
 let cata = (function(cata_map) {
@@ -31,7 +41,7 @@ let cata = (function(cata_map) {
             let cataFObj = typeof cataF === 'function' ? cataF(obj) : cataF;
             let xformed_cata = (obj) => Object.fromEntries(
                 Object.entries(cataFObj).map(([name, fn]) => ([name, (...children) => {
-                   let output = fn.apply(obj, children.map((child, ii) => schema[name][ii]({I: () => child(xformed_cata(child)), K: () => child})));
+                   let output = fn.apply(obj, children.map((child, ii) => schemaAction(xformed_cata, child, schema[name][ii])));
                    if(hasSeed) {
                        return (...args) => {
                            let out = output(...args);
@@ -55,4 +65,4 @@ let cata = (function(cata_map) {
     }
 })(new WeakMap());
 
-module.exports = { I, K, constructors, cata, tagWithSchema, getSchema };
+module.exports = { I, K, L, constructors, cata, tagWithSchema, getSchema };
